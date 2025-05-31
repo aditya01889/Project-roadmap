@@ -52,7 +52,7 @@
                 roadmapEl.innerHTML = '';
 
                 // Fetch data from your API
-                const response = await fetch('/api/roadmap');
+                const response = await fetch('https://project-roadmap-eight.vercel.app/api/roadmap');
                 
                 if (!response.ok) {
                     const error = await response.json();
