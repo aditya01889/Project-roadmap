@@ -10,15 +10,27 @@ export default function Home() {
     const fetchRoadmap = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/roadmap');
+        setError(null);
+        
+        console.log('Fetching roadmap data...');
+        const apiUrl = '/api/roadmap';
+        console.log('API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        const responseData = await response.json();
+        
+        console.log('API Response:', responseData);
         
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to fetch roadmap data');
+          throw new Error(responseData.message || `Failed to fetch roadmap data (${response.status})`);
         }
 
-        const data = await response.json();
-        setRoadmapItems(data.results || []);
+        if (!responseData.results) {
+          console.warn('No results in response:', responseData);
+          throw new Error('No data returned from the server');
+        }
+
+        setRoadmapItems(responseData.results);
       } catch (err) {
         console.error('Error fetching roadmap:', err);
         setError(err.message || 'An error occurred while loading the roadmap');
@@ -56,7 +68,16 @@ export default function Home() {
 
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-            <p>{error}</p>
+            <p className="font-bold">Error loading roadmap data</p>
+            <p className="mt-2">{error}</p>
+            <p className="mt-2 text-sm">
+              Check the browser console for more details.
+              {process.env.NODE_ENV === 'development' && (
+                <span className="block mt-2">
+                  API URL: /api/roadmap
+                </span>
+              )}
+            </p>
           </div>
         )}
 

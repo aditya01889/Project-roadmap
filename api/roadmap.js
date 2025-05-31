@@ -1,5 +1,24 @@
 import { Client } from "@notionhq/client";
 
+// Enable CORS
+const allowCors = fn => async (req, res) => {
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  return await fn(req, res);
+};
+
 // Initialize Notion client with API key from environment variables
 const notion = new Client({ 
   auth: process.env.NOTION_API_KEY,
@@ -19,7 +38,7 @@ const logError = (error, context = {}) => {
   console.error('===================');
 };
 
-export default async function handler(req, res) {
+async function roadmapHandler(req, res) {
   try {
     // Check if NOTION_API_KEY is set
     if (!process.env.NOTION_API_KEY) {
@@ -69,3 +88,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default allowCors(roadmapHandler);
