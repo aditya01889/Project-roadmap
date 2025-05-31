@@ -118,69 +118,166 @@ async function roadmapHandler(req, res) {
           return '';
         };
         
-        // Helper to get title from Feature property
-        const getTitle = (prop) => {
-          if (!prop) return 'Untitled';
-          console.log('Getting title from prop:', prop);
+        // Helper function to extract text from Notion property
+        const extractTextFromProperty = (prop) => {
+          if (!prop) return null;
           
-          // Check if this is the Feature property
-          if (prop.id === 'title' || prop.type === 'title') {
-            if (prop.title) {
-              const title = prop.title.map(t => t.plain_text).join(' ');
-              console.log('Title from title property:', title);
-              return title;
+          // Handle title type property
+          if (prop.type === 'title' && prop.title) {
+            return prop.title.map(t => t.plain_text).join(' ').trim();
+          }
+          
+          // Handle rich_text type property
+          if (prop.rich_text && Array.isArray(prop.rich_text)) {
+            return prop.rich_text.map(t => t.plain_text).join(' ').trim();
+          }
+          
+          // Handle select type property
+          if (prop.type === 'select' && prop.select) {
+            return prop.select.name;
+          }
+          
+          // Handle multi_select type property
+          if (prop.type === 'multi_select' && Array.isArray(prop.multi_select)) {
+            return prop.multi_select.map(s => s.name).join(', ');
+          }
+          
+          // Handle formula type property
+          if (prop.type === 'formula' && prop.formula) {
+            if (prop.formula.type === 'string' && prop.formula.string) {
+              return prop.formula.string;
+            }
+            if (prop.formula.type === 'number' && prop.formula.number !== undefined) {
+              return String(prop.formula.number);
+            }
+            if (prop.formula.type === 'boolean' && prop.formula.boolean !== undefined) {
+              return prop.formula.boolean ? 'Yes' : 'No';
             }
           }
           
-          // If we have a Feature property, use that
-          const featureProp = properties.Feature || properties.feature;
-          if (featureProp) {
-            if (featureProp.title) {
-              const title = featureProp.title.map(t => t.plain_text).join(' ');
-              console.log('Title from Feature property:', title);
-              return title;
-            }
-            if (featureProp.rich_text) {
-              const title = getRichText(featureProp);
-              console.log('Title from Feature rich text:', title);
-              return title;
-            }
+          // Handle URL type property
+          if (prop.type === 'url' && prop.url) {
+            return prop.url;
           }
           
-          // Fallback to any title or name property
-          const titleProp = Object.entries(properties).find(([key, value]) => 
-            key.toLowerCase() === 'name' || 
-            key.toLowerCase() === 'title' ||
+          // Handle email type property
+          if (prop.type === 'email' && prop.email) {
+            return prop.email;
+          }
+          
+          // Handle phone_number type property
+          if (prop.type === 'phone_number' && prop.phone_number) {
+            return prop.phone_number;
+          }
+          
+          // Handle date type property
+          if (prop.type === 'date' && prop.date) {
+            return prop.date.start || '';
+          }
+          
+          // Handle people type property
+          if (prop.type === 'people' && Array.isArray(prop.people)) {
+            return prop.people.map(p => p.name || 'Unknown').join(', ');
+          }
+          
+          // Handle files type property
+          if (prop.type === 'files' && Array.isArray(prop.files)) {
+            return prop.files.map(f => f.name || 'File').join(', ');
+          }
+          
+          // Handle checkbox type property
+          if (prop.type === 'checkbox' && prop.checkbox !== undefined) {
+            return prop.checkbox ? 'Yes' : 'No';
+          }
+          
+          // Handle number type property
+          if (prop.type === 'number' && prop.number !== undefined) {
+            return String(prop.number);
+          }
+          
+          // Handle created_time type property
+          if (prop.type === 'created_time' && prop.created_time) {
+            return prop.created_time;
+          }
+          
+          // Handle last_edited_time type property
+          if (prop.type === 'last_edited_time' && prop.last_edited_time) {
+            return prop.last_edited_time;
+          }
+          
+          // Handle created_by type property
+          if (prop.type === 'created_by' && prop.created_by) {
+            return prop.created_by.name || 'Unknown';
+          }
+          
+          // Handle last_edited_by type property
+          if (prop.type === 'last_edited_by' && prop.last_edited_by) {
+            return prop.last_edited_by.name || 'Unknown';
+          }
+          
+          // Handle relation type property
+          if (prop.type === 'relation' && Array.isArray(prop.relation)) {
+            return prop.relation.length > 0 ? 'Related' : '';
+          }
+          
+          // Handle rollup type property
+          if (prop.type === 'rollup' && prop.rollup) {
+            // This is a complex type that might need special handling
+            return 'Rollup';
+          }
+          
+          return null;
+        };
+        
+        // Function to get title from properties
+        const getTitle = () => {
+          // List of possible title properties to check (in order of priority)
+          const possibleTitleProps = [
+            'Name', 'Title', 'Feature', 'Project', 'Task', 'Item', 'Description',
+            'name', 'title', 'feature', 'project', 'task', 'item', 'description'
+          ];
+          
+          // First, check for any property that has type 'title'
+          const titleProp = Object.entries(properties).find(([_, value]) => 
             value?.type === 'title'
           );
           
           if (titleProp) {
-            const [key, value] = titleProp;
-            console.log(`Found potential title property: ${key}`, value);
-            if (value.title) {
-              const title = value.title.map(t => t.plain_text).join(' ');
-              console.log('Title from found title property:', title);
-              return title;
-            }
-            if (value.rich_text) {
-              const title = getRichText(value);
-              console.log('Title from found rich text property:', title);
+            const [key, prop] = titleProp;
+            const title = extractTextFromProperty(prop);
+            if (title) {
+              console.log(`Found title in property '${key}' (type: ${prop.type})`);
               return title;
             }
           }
           
-          console.log('No title found, using Untitled');
-          return 'Untitled';
+          // Then check other possible title properties
+          for (const propName of possibleTitleProps) {
+            if (properties[propName]) {
+              const title = extractTextFromProperty(properties[propName]);
+              if (title) {
+                console.log(`Found title in property '${propName}'`);
+                return title;
+              }
+            }
+          }
+          
+          // If no title found, try to use the first property that has text
+          for (const [key, prop] of Object.entries(properties)) {
+            const title = extractTextFromProperty(prop);
+            if (title) {
+              console.log(`Using fallback title from property '${key}'`);
+              return title;
+            }
+          }
+          
+          // If still no title, use the page ID
+          const fallbackTitle = `Item ${item.id.slice(0, 6)}`;
+          console.log(`No title found, using fallback: ${fallbackTitle}`);
+          return fallbackTitle;
         };
         
-        // Try to find a title property by type or name
-        const titleProp = Object.entries(properties).find(([key, value]) => 
-          value?.type === 'title' || 
-          key.toLowerCase() === 'name' || 
-          key.toLowerCase() === 'title'
-        )?.[1] || {};
-        
-        const title = getTitle(titleProp);
+        const title = getTitle();
         console.log('Final title:', title);
         
         return {
