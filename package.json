@@ -1,13 +1,18 @@
 {
   "name": "project-roadmap",
   "version": "1.0.0",
-  "description": "Project Roadmap API using Notion",
-  "main": "index.js",
+  "description": "Project Roadmap using Notion and Next.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.14"
+    "@notionhq/client": "^2.2.14",
+    "next": "13.4.12",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "engines": {
     "node": ">=14.0.0"

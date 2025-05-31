@@ -1,11 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/roadmap.js", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
+    { "src": "package.json", "use": "@vercel/next" },
+    { "src": "api/roadmap.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/roadmap", "dest": "/api/roadmap" },
-    { "src": "/(.*)", "dest": "/public/$1" }
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/.*", "dest": "/" }
   ]
 }
