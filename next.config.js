@@ -2,8 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
-  // Only use output: 'export' for static exports (not needed for Vercel)
-  // output: 'export',
+  // Set base path for Vercel deployment
+  basePath: process.env.NODE_ENV === 'production' ? '' : '',
+  // Set asset prefix for static files
+  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
   images: {
     unoptimized: true,
   },
@@ -24,6 +26,10 @@ const nextConfig = {
         destination: 'http://localhost:3000/api/:path*',
       },
     ];
+  },
+  // Ensure static exports work correctly
+  experimental: {
+    outputFileTracingRoot: process.env.NODE_ENV === 'production' ? __dirname : undefined,
   },
 };
 
