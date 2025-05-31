@@ -65,10 +65,26 @@ async function roadmapHandler(req, res) {
       const propertyNames = Object.keys(database.properties || {});
       console.log('Available properties in database:', propertyNames);
       
-      // Now query the database with a simple query
+      // Get the project ID from query parameters if provided
+      const { id: projectId } = req.query;
+      
+      let filter = undefined;
+      if (projectId) {
+        // If a specific project ID is requested, filter by that ID
+        filter = {
+          property: 'id',
+          rich_text: {
+            equals: projectId
+          }
+        };
+        console.log(`Filtering for project ID: ${projectId}`);
+      }
+      
+      // Query the database with optional filter
       const response = await notion.databases.query({
         database_id: databaseId,
-        page_size: 100,
+        filter: filter,
+        page_size: projectId ? 1 : 100, // Only need 1 result if filtering by ID
       });
 
       console.log(`Successfully queried Notion database. Found ${response.results.length} items.`);
