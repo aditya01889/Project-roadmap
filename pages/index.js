@@ -16,7 +16,11 @@ export default function Home() {
         const apiUrl = '/api/roadmap';
         console.log('API URL:', apiUrl);
         
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
         const responseData = await response.json();
         
         console.log('API Response:', responseData);
