@@ -89,30 +89,91 @@ async function roadmapHandler(req, res) {
 
       console.log(`Successfully queried Notion database. Found ${response.results.length} items.`);
       
+      // Log the raw response from Notion
+      console.log('Raw Notion API response:', JSON.stringify(response, null, 2));
+      
       // Process the results to extract the data we need
       const processedResults = response.results.map(item => {
+        console.log('Processing item:', item.id);
+        console.log('Item properties:', Object.keys(item.properties || {}));
+        
         const properties = item.properties || {};
+        
+        // Log all properties and their types
+        Object.entries(properties).forEach(([key, value]) => {
+          console.log(`Property: ${key}, Type: ${value?.type}`);
+          if (value?.type === 'title' || key.toLowerCase().includes('name') || key.toLowerCase().includes('title')) {
+            console.log(`Potential title property [${key}]:`, JSON.stringify(value, null, 2));
+          }
+        });
         
         // Helper function to get rich text content
         const getRichText = (prop) => {
-          if (!prop || !prop.rich_text) return '';
-          return prop.rich_text.map(rt => rt.plain_text).join(' ');
+          if (!prop) return '';
+          if (prop.rich_text) {
+            const text = prop.rich_text.map(rt => rt.plain_text).join(' ');
+            console.log('Rich text content:', text);
+            return text;
+          }
+          return '';
         };
         
         // Helper to get title (common in Notion databases)
         const getTitle = (prop) => {
           if (!prop) return 'Untitled';
-          if (prop.title) return prop.title.map(t => t.plain_text).join(' ');
-          if (prop.rich_text) return getRichText(prop);
+          console.log('Getting title from prop:', prop);
+          
+          if (prop.title) {
+            const title = prop.title.map(t => t.plain_text).join(' ');
+            console.log('Title from title property:', title);
+            return title;
+          }
+          
+          if (prop.rich_text) {
+            const richText = getRichText(prop);
+            console.log('Title from rich text:', richText);
+            return richText;
+          }
+          
+          // Try to find a title property by name
+          const titleProp = Object.entries(properties).find(([key, value]) => 
+            key.toLowerCase() === 'name' || 
+            key.toLowerCase() === 'title' ||
+            value?.type === 'title'
+          );
+          
+          if (titleProp) {
+            const [key, value] = titleProp;
+            console.log(`Found potential title property: ${key}`, value);
+            if (value.title) {
+              const title = value.title.map(t => t.plain_text).join(' ');
+              console.log('Title from found title property:', title);
+              return title;
+            }
+            if (value.rich_text) {
+              const title = getRichText(value);
+              console.log('Title from found rich text property:', title);
+              return title;
+            }
+          }
+          
+          console.log('No title found, using Untitled');
           return 'Untitled';
         };
         
-        // Extract common properties
-        const titleProp = Object.values(properties).find(p => p.type === 'title') || {};
+        // Try to find a title property by type or name
+        const titleProp = Object.entries(properties).find(([key, value]) => 
+          value?.type === 'title' || 
+          key.toLowerCase() === 'name' || 
+          key.toLowerCase() === 'title'
+        )?.[1] || {};
+        
+        const title = getTitle(titleProp);
+        console.log('Final title:', title);
         
         return {
           id: item.id,
-          title: getTitle(titleProp),
+          title: title,
           // Include all properties for debugging
           properties: properties,
           // Include the raw API response for debugging

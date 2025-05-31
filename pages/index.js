@@ -230,16 +230,37 @@ export default function Home() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white p-6 rounded-lg shadow-md">
+        <div className="max-w-4xl w-full bg-white p-6 rounded-lg shadow-md">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Roadmap</h1>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
+          
+          {debugInfo && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-md overflow-auto max-h-96">
+              <h3 className="font-medium text-gray-700 mb-2">Debug Information:</h3>
+              <pre className="text-xs text-gray-600 overflow-auto">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </div>
+          )}
+          
+          <div className="mt-6 flex space-x-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                console.log('Debug Info:', debugInfo);
+                console.log('Roadmap Items:', roadmapItems);
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              Show Debug in Console
+            </button>
+          </div>
         </div>
       </div>
     );
