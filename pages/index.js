@@ -123,9 +123,12 @@ export default function Home() {
               value: value
             })));
             
-            // Find title property (case-insensitive)
+            // Find title property (prioritize 'Feature' property first, then others)
             const titleKey = Object.keys(properties).find(
-              k => k.toLowerCase() === 'name' || k.toLowerCase() === 'title' || k.toLowerCase().includes('name') || k.toLowerCase().includes('title')
+              k => k.toLowerCase() === 'feature' || 
+                   k.toLowerCase() === 'name' || 
+                   k.toLowerCase() === 'title' || 
+                   k.toLowerCase().includes('title')
             );
             
             // Find other common properties (case-insensitive)
@@ -146,8 +149,13 @@ export default function Home() {
             const dueDateProp = findProperty(['Due Date', 'Due', 'Deadline', 'Target Date']);
             const priorityProp = findProperty(['Priority', 'Importance', 'Urgency']);
             
-            // Process properties
-            const title = titleProp ? getTextFromProperty(titleProp) : 'Untitled';
+            // Process properties - prioritize 'Feature' property for title
+            let title = 'Untitled';
+            if (properties.Feature) {
+              title = getTextFromProperty(properties.Feature);
+            } else if (titleProp) {
+              title = getTextFromProperty(titleProp);
+            }
             const status = statusProp ? getTextFromProperty(statusProp) : 'Not Started';
             const description = descProp ? getTextFromProperty(descProp) : '';
             const dueDate = dueDateProp ? getTextFromProperty(dueDateProp) : '';
