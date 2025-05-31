@@ -1,31 +1,32 @@
-// File: api/roadmap.js
-
 import { Client } from "@notionhq/client";
 
+// Initialize Notion client with API key from environment variables
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
-const databaseId = process.env.NOTION_DATABASE_ID;
 
 export default async function handler(req, res) {
   try {
+    // Check if NOTION_DATABASE_ID env var is set
+    const databaseId = process.env.NOTION_DATABASE_ID;
+    if (!databaseId) {
+      throw new Error("Environment variable NOTION_DATABASE_ID is not set.");
+    }
+
+    // Query the Notion database
     const response = await notion.databases.query({
       database_id: databaseId,
+      page_size: 100,
     });
 
-    const projects = {};
-
-    response.results.forEach((page) => {
-      const props = page.properties;
-      const project = props["Project"].title[0]?.plain_text || "Unknown";
-      const feature = props["Feature"].rich_text[0]?.plain_text || "";
-      const status = props["Status"].select?.name || "Planned";
-
-      if (!projects[project]) projects[project] = [];
-      projects[project].push({ feature, status });
-    });
-
-    res.status(200).json(projects);
+    // Send back the query results as JSON
+    res.status(200).json(response);
   } catch (error) {
-    console.error("Error fetching Notion data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    // Log the error to the server console for debugging
+    console.error("Error fetching data from Notion API:", error);
+
+    // Respond with status 500 and error message JSON
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: error.message,
+    });
   }
 }
