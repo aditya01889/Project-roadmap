@@ -53,43 +53,94 @@ async function roadmapHandler(req, res) {
 
     console.log('Attempting to query Notion database:', databaseId);
     
-    console.log('Fetching database schema...');
-    const database = await notion.databases.retrieve({
-      database_id: databaseId,
-    });
+    console.log('Querying Notion database...');
     
-    console.log('Database schema:', JSON.stringify(database, null, 2));
-    
-    // Get all property names from the database
-    const propertyNames = Object.keys(database.properties);
-    console.log('Available properties in database:', propertyNames);
-    
-    // Query the Notion database with all properties
-    const response = await notion.databases.query({
-      database_id: databaseId,
-      page_size: 100,
-      // Fetch all properties to ensure we get all data
-      filter_properties: propertyNames.map((_, index) => ({
-        property: 'title',
-      })).concat(propertyNames.map(propName => ({
-        property: propName,
-      })))
-    });
+    try {
+      // First, try to get the database schema
+      console.log('Fetching database schema...');
+      const database = await notion.databases.retrieve({
+        database_id: databaseId,
+      });
+      
+      const propertyNames = Object.keys(database.properties || {});
+      console.log('Available properties in database:', propertyNames);
+      
+      // Now query the database with a simple query
+      const response = await notion.databases.query({
+        database_id: databaseId,
+        page_size: 100,
+      });
 
-    console.log(`Successfully queried Notion database. Found ${response.results.length} items.`);
-    
-    // Send back the query results as JSON with additional metadata
-    return res.status(200).json({
-      success: true,
-      results: response.results,
-      // Include property names for debugging
-      propertyNames: propertyNames,
-      // Include the first item's properties for reference
-      sampleItem: response.results.length > 0 ? {
-        id: response.results[0].id,
-        properties: response.results[0].properties
-      } : null
-    });
+      console.log(`Successfully queried Notion database. Found ${response.results.length} items.`);
+      
+      // Process the results to extract the data we need
+      const processedResults = response.results.map(item => {
+        const properties = item.properties || {};
+        
+        // Helper function to get rich text content
+        const getRichText = (prop) => {
+          if (!prop || !prop.rich_text) return '';
+          return prop.rich_text.map(rt => rt.plain_text).join(' ');
+        };
+        
+        // Helper to get title (common in Notion databases)
+        const getTitle = (prop) => {
+          if (!prop) return 'Untitled';
+          if (prop.title) return prop.title.map(t => t.plain_text).join(' ');
+          if (prop.rich_text) return getRichText(prop);
+          return 'Untitled';
+        };
+        
+        // Extract common properties
+        const titleProp = Object.values(properties).find(p => p.type === 'title') || {};
+        
+        return {
+          id: item.id,
+          title: getTitle(titleProp),
+          // Include all properties for debugging
+          properties: properties,
+          // Include the raw API response for debugging
+          _raw: item
+        };
+      });
+      
+      return res.status(200).json({
+        success: true,
+        results: processedResults,
+        propertyNames: propertyNames,
+        debug: {
+          firstItem: processedResults.length > 0 ? processedResults[0] : null,
+          rawFirstItem: response.results.length > 0 ? response.results[0] : null
+        }
+      });
+      
+    } catch (schemaError) {
+      console.warn('Error fetching database schema, falling back to simple query:', schemaError);
+      
+      // Fallback to a simple query if schema retrieval fails
+      const response = await notion.databases.query({
+        database_id: databaseId,
+        page_size: 100,
+      });
+      
+      // Process results without relying on schema
+      const processedResults = response.results.map(item => ({
+        id: item.id,
+        title: 'Item ' + (item.id || '').slice(0, 6),
+        properties: item.properties || {},
+        _raw: item
+      }));
+      
+      return res.status(200).json({
+        success: true,
+        results: processedResults,
+        propertyNames: Object.keys(processedResults[0]?.properties || {}),
+        debug: {
+          message: 'Used fallback query',
+          error: schemaError.message
+        }
+      });
+    }
     
   } catch (error) {
     // Log detailed error information

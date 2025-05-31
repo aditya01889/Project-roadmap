@@ -70,28 +70,41 @@ export default function Home() {
           console.log('First item raw properties:', responseData.results[0].properties);
         }
 
+        // Extract property names from the first item for reference
+        const propertyNames = responseData.propertyNames || 
+          (responseData.results[0]?.properties ? Object.keys(responseData.results[0].properties) : []);
+        
+        console.log('Available property names:', propertyNames);
+        
         // Process the Notion API response
         const processedItems = responseData.results.map(item => {
           const properties = item.properties || {};
           
-          // Log all property names for debugging
-          console.log('Available properties:', Object.keys(properties));
+          // Try to find common property names
+          const title = item.title || getTextFromProperty(
+            properties.Name || properties.name || properties.Title || properties.title || {}
+          ) || 'Untitled Item';
           
-          // Try to find the title property (Notion's default is 'Name')
-          const titleProperty = properties.Name || properties.name || properties.Title || {};
-          const title = titleProperty.title?.[0]?.plain_text || 'Untitled Item';
+          // Try to find status property (common names: Status, State, Stage, Status)
+          const status = getTextFromProperty(
+            properties.Status || properties.State || properties.Stage || properties.status || {}
+          ) || 'Not Started';
           
-          // Try to find status property (common names: Status, State, Stage)
-          const statusProperty = properties.Status || properties.State || properties.Stage || {};
-          const status = statusProperty.select?.name || 'Not Started';
+          // Try to find description (common names: Description, Details, Notes, description)
+          const description = getTextFromProperty(
+            properties.Description || properties.Details || properties.Notes || properties.description || {}
+          );
           
-          // Try to find description (common names: Description, Details, Notes)
-          const descriptionProperty = properties.Description || properties.Details || properties.Notes || {};
-          const description = descriptionProperty.rich_text?.[0]?.plain_text || '';
+          // Try to find due date (common names: Due Date, Deadline, Target Date, due_date)
+          const dueDate = getTextFromProperty(
+            properties['Due Date'] || properties.Deadline || properties['Target Date'] || properties.due_date || {}
+          );
           
-          // Try to find due date (common names: Due Date, Deadline, Target Date)
-          const dueDateProperty = properties['Due Date'] || properties.Deadline || properties['Target Date'] || {};
-          const dueDate = dueDateProperty.date?.start || '';
+          // Collect all properties for display
+          const allProperties = {};
+          Object.entries(properties).forEach(([key, prop]) => {
+            allProperties[key] = getTextFromProperty(prop);
+          });
           
           return {
             id: item.id,
@@ -99,10 +112,17 @@ export default function Home() {
             status: status,
             description: description,
             dueDate: dueDate,
-            // Include all raw properties for debugging
+            // Include all processed properties
+            properties: allProperties,
+            // Include raw properties for debugging
             rawProperties: properties
           };
         });
+        
+        // Log the first item's processed data for debugging
+        if (processedItems.length > 0) {
+          console.log('First processed item:', processedItems[0]);
+        }
 
         setRoadmapItems(processedItems);
         
@@ -132,6 +152,13 @@ export default function Home() {
     'Planned': 'bg-blue-100 text-blue-800'
   };
 
+  // Helper function to render property value
+  const renderPropertyValue = (value) => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return value.toString();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <Head>
@@ -140,11 +167,14 @@ export default function Home() {
       </Head>
 
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Project Roadmap</h1>
-          <div className="flex space-x-2">
-            <span className="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
-              {roadmapItems.length} items
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Project Roadmap</h1>
+            <p className="text-gray-500 text-sm mt-1">Powered by Notion</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800 font-medium">
+              {roadmapItems.length} {roadmapItems.length === 1 ? 'item' : 'items'}
             </span>
           </div>
         </div>
@@ -159,24 +189,51 @@ export default function Home() {
         )}
 
         {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-            <p className="font-bold">Error loading roadmap data</p>
-            <p className="mt-2">{error}</p>
-            <p className="mt-2 text-sm">
-              Check the browser console for more details.
-              {process.env.NODE_ENV === 'development' && (
-                <span className="block mt-2">
-                  API URL: /api/roadmap
-                </span>
-              )}
-            </p>
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-r">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error loading roadmap data</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4">
+                    <div className="bg-red-50 border border-red-200 px-4 py-3 rounded-md">
+                      <h4 className="text-xs font-medium text-red-800 mb-1">Debug Info:</h4>
+                      <p className="text-xs text-red-700">API URL: /api/roadmap</p>
+                      <p className="text-xs text-red-700 mt-1">Check the browser console for more details.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {!loading && !error && roadmapItems.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No roadmap items found.</p>
-            <p className="text-sm text-gray-400 mt-2">Check if your Notion database has any items.</p>
+          <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="mt-2 text-lg font-medium text-gray-900">No items found</h3>
+            <p className="mt-1 text-sm text-gray-500">No roadmap items were found in your Notion database.</p>
+            <div className="mt-6">
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); window.location.reload(); }}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </a>
+            </div>
           </div>
         )}
 
@@ -184,31 +241,54 @@ export default function Home() {
           {roadmapItems.map((item, index) => {
             const status = item.status || 'Not Started';
             const statusClass = statusColors[status] || 'bg-gray-100 text-gray-800';
+            const hasProperties = item.properties && Object.keys(item.properties).length > 0;
             
             return (
               <div 
                 key={item.id || index} 
-                className="bg-white p-4 md:p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                className="bg-white p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100"
               >
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="flex-1">
-                    <h2 className="text-lg md:text-xl font-semibold text-gray-800">
+                    <h2 className="text-lg md:text-xl font-semibold text-gray-900">
                       {item.title || 'Untitled Item'}
                     </h2>
+                    
                     {item.description && (
-                      <p className="mt-1 text-gray-600">{item.description}</p>
+                      <p className="mt-2 text-gray-600">{item.description}</p>
+                    )}
+                    
+                    {/* Display additional properties */}
+                    {hasProperties && (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        {Object.entries(item.properties)
+                          .filter(([key]) => !['title', 'description', 'status', 'duedate'].includes(key.toLowerCase()))
+                          .map(([key, value]) => (
+                            <div key={key} className="flex">
+                              <span className="font-medium text-gray-500 w-24 flex-shrink-0">
+                                {key}:
+                              </span>
+                              <span className="text-gray-800 flex-1 break-words">
+                                {renderPropertyValue(value) || '—'}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
                     )}
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-2
-                    md:flex-col md:items-end md:space-y-2 md:w-48">
-                    <span className={`px-3 py-1 text-xs md:text-sm rounded-full ${statusClass} whitespace-nowrap`}>
+                  <div className="flex flex-col items-start md:items-end space-y-2 min-w-[120px]">
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusClass} whitespace-nowrap`}>
                       {status}
                     </span>
+                    
                     {item.dueDate && (
-                      <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        📅 {new Date(item.dueDate).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
+                        <svg className="h-3.5 w-3.5 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {new Date(item.dueDate).toLocaleDateString()}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -216,10 +296,27 @@ export default function Home() {
                 {/* Debug info - only visible in development */}
                 {process.env.NODE_ENV === 'development' && (
                   <details className="mt-4 text-xs bg-gray-50 p-2 rounded overflow-hidden">
-                    <summary className="cursor-pointer text-gray-500">Debug Info</summary>
-                    <pre className="mt-2 p-2 bg-white border rounded text-xs overflow-x-auto">
-                      {JSON.stringify(item.rawProperties, null, 2)}
-                    </pre>
+                    <summary className="cursor-pointer text-gray-500 font-medium">Debug Info</summary>
+                    <div className="mt-2 space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-1">Processed Data:</h4>
+                        <pre className="p-2 bg-white border rounded text-xs overflow-x-auto">
+                          {JSON.stringify({
+                            id: item.id,
+                            title: item.title,
+                            status: item.status,
+                            description: item.description,
+                            dueDate: item.dueDate
+                          }, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold mb-1">Raw Properties:</h4>
+                        <pre className="p-2 bg-white border rounded text-xs overflow-x-auto">
+                          {JSON.stringify(item.rawProperties, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
                   </details>
                 )}
               </div>
@@ -229,12 +326,14 @@ export default function Home() {
         
         {/* Debug section */}
         {process.env.NODE_ENV === 'development' && debugInfo && (
-          <div className="mt-12 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">Debug Information</h3>
-            <p className="text-sm text-gray-600 mb-2">First item's properties:</p>
-            <pre className="text-xs bg-white p-3 rounded border overflow-x-auto">
-              {debugInfo}
-            </pre>
+          <div className="mt-12 p-5 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Debug Information</h3>
+            <div className="bg-white p-4 rounded border border-gray-200 overflow-hidden">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">First Item's Properties:</h4>
+              <pre className="text-xs text-gray-800 overflow-x-auto p-3 bg-gray-50 rounded">
+                {debugInfo}
+              </pre>
+            </div>
           </div>
         )}
       </div>
