@@ -65,17 +65,42 @@ export default function Home() {
           throw new Error('No data returned from the server');
         }
 
+        // Log the first item's raw properties to help with debugging
+        if (responseData.results.length > 0) {
+          console.log('First item raw properties:', responseData.results[0].properties);
+        }
+
         // Process the Notion API response
         const processedItems = responseData.results.map(item => {
           const properties = item.properties || {};
+          
+          // Log all property names for debugging
+          console.log('Available properties:', Object.keys(properties));
+          
+          // Try to find the title property (Notion's default is 'Name')
+          const titleProperty = properties.Name || properties.name || properties.Title || {};
+          const title = titleProperty.title?.[0]?.plain_text || 'Untitled Item';
+          
+          // Try to find status property (common names: Status, State, Stage)
+          const statusProperty = properties.Status || properties.State || properties.Stage || {};
+          const status = statusProperty.select?.name || 'Not Started';
+          
+          // Try to find description (common names: Description, Details, Notes)
+          const descriptionProperty = properties.Description || properties.Details || properties.Notes || {};
+          const description = descriptionProperty.rich_text?.[0]?.plain_text || '';
+          
+          // Try to find due date (common names: Due Date, Deadline, Target Date)
+          const dueDateProperty = properties['Due Date'] || properties.Deadline || properties['Target Date'] || {};
+          const dueDate = dueDateProperty.date?.start || '';
+          
           return {
             id: item.id,
-            title: getPropertyValue(properties.Name || properties.Title || properties.name || properties.title),
-            status: getPropertyValue(properties.Status || properties.status),
-            description: getPropertyValue(properties.Description || properties.description),
-            dueDate: getPropertyValue(properties['Due Date'] || properties.due_date || properties.dueDate),
-            // Add more properties as needed
-            rawProperties: properties // Include raw properties for debugging
+            title: title,
+            status: status,
+            description: description,
+            dueDate: dueDate,
+            // Include all raw properties for debugging
+            rawProperties: properties
           };
         });
 

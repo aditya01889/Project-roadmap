@@ -53,16 +53,43 @@ async function roadmapHandler(req, res) {
 
     console.log('Attempting to query Notion database:', databaseId);
     
-    // Query the Notion database
+    console.log('Fetching database schema...');
+    const database = await notion.databases.retrieve({
+      database_id: databaseId,
+    });
+    
+    console.log('Database schema:', JSON.stringify(database, null, 2));
+    
+    // Get all property names from the database
+    const propertyNames = Object.keys(database.properties);
+    console.log('Available properties in database:', propertyNames);
+    
+    // Query the Notion database with all properties
     const response = await notion.databases.query({
       database_id: databaseId,
       page_size: 100,
+      // Fetch all properties to ensure we get all data
+      filter_properties: propertyNames.map((_, index) => ({
+        property: 'title',
+      })).concat(propertyNames.map(propName => ({
+        property: propName,
+      })))
     });
 
-    console.log('Successfully queried Notion database');
+    console.log(`Successfully queried Notion database. Found ${response.results.length} items.`);
     
-    // Send back the query results as JSON
-    return res.status(200).json(response);
+    // Send back the query results as JSON with additional metadata
+    return res.status(200).json({
+      success: true,
+      results: response.results,
+      // Include property names for debugging
+      propertyNames: propertyNames,
+      // Include the first item's properties for reference
+      sampleItem: response.results.length > 0 ? {
+        id: response.results[0].id,
+        properties: response.results[0].properties
+      } : null
+    });
     
   } catch (error) {
     // Log detailed error information
