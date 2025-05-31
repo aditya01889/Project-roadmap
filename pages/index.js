@@ -5,43 +5,53 @@ import Link from 'next/link';
 
 // Helper function to extract text from Notion property
 const getTextFromProperty = (property) => {
+  // If property is already a string, return it
+  if (typeof property === 'string') return property;
   if (!property) return '';
   
-  if (typeof property === 'string') return property;
-  
   // Handle different property types
-  if (property.type === 'title' && property.title) {
+  if (property.title) {
     return property.title.map(t => t.plain_text).join(' ');
   }
-  if (property.type === 'rich_text' && property.rich_text) {
+  if (property.rich_text) {
     return property.rich_text.map(t => t.plain_text).join(' ');
   }
-  if (property.type === 'select' && property.select) {
+  if (property.select) {
     return property.select.name || '';
   }
-  if (property.type === 'multi_select' && property.multi_select) {
+  if (property.multi_select) {
     return property.multi_select.map(s => s.name).join(', ');
   }
-  if (property.type === 'date' && property.date) {
+  if (property.date) {
     return property.date.start || '';
   }
-  if (property.type === 'number' && property.number !== undefined) {
+  if (property.number !== undefined) {
     return property.number.toString();
   }
-  if (property.type === 'checkbox' && property.checkbox !== undefined) {
+  if (property.checkbox !== undefined) {
     return property.checkbox ? 'Yes' : 'No';
   }
-  if (property.type === 'url' && property.url) {
+  if (property.url) {
     return property.url;
   }
-  if (property.type === 'email' && property.email) {
+  if (property.email) {
     return property.email;
   }
-  if (property.type === 'phone_number' && property.phone_number) {
+  if (property.phone_number) {
     return property.phone_number;
   }
-  if (property.type === 'files' && property.files) {
+  if (property.files) {
     return property.files[0]?.file?.url || property.files[0]?.external?.url || '';
+  }
+  
+  // If we have a type but no matching handler, try to handle it
+  if (property.type) {
+    console.warn(`Unhandled property type: ${property.type}`, property);
+  }
+  
+  // If it's an object with a value property, use that
+  if (property.value !== undefined) {
+    return property.value;
   }
   
   return '';
@@ -93,43 +103,94 @@ export default function Home() {
         }
         
         if (data.results && data.results.length > 0) {
+          console.log('Raw API response:', data);
+          
+          // Log all available property names from the first item
+          if (data.results[0]?.properties) {
+            console.log('Available properties:', Object.keys(data.results[0].properties));
+          }
+          
           // Process the results to extract useful information
           const processedItems = data.results.map(item => {
             const properties = item.properties || {};
             
-            // Extract common properties
-            const title = getTextFromProperty(properties.Name || properties.Title || properties.name || properties.title || {});
-            const status = getTextFromProperty(properties.Status || properties.status || {});
-            const description = getTextFromProperty(properties.Description || properties.description || {});
-            const dueDate = getTextFromProperty(properties['Due Date'] || properties['Due date'] || properties.due_date || properties.dueDate || {});
-            const priority = getTextFromProperty(properties.Priority || properties.priority || {});
+            // Debug: Log all properties for this item
+            console.log('Processing item properties:', Object.entries(properties).map(([key, value]) => ({
+              key,
+              type: value?.type,
+              hasTitle: !!value?.title,
+              hasRichText: !!value?.rich_text,
+              value: value
+            })));
+            
+            // Find title property (case-insensitive)
+            const titleKey = Object.keys(properties).find(
+              k => k.toLowerCase() === 'name' || k.toLowerCase() === 'title' || k.toLowerCase().includes('name') || k.toLowerCase().includes('title')
+            );
+            
+            // Find other common properties (case-insensitive)
+            const findProperty = (possibleNames) => {
+              for (const name of possibleNames) {
+                const key = Object.keys(properties).find(
+                  k => k.toLowerCase() === name.toLowerCase()
+                );
+                if (key) return properties[key];
+              }
+              return null;
+            };
+            
+            // Extract properties using the helper
+            const titleProp = titleKey ? properties[titleKey] : null;
+            const statusProp = findProperty(['Status', 'State', 'Progress']);
+            const descProp = findProperty(['Description', 'Details', 'Notes']);
+            const dueDateProp = findProperty(['Due Date', 'Due', 'Deadline', 'Target Date']);
+            const priorityProp = findProperty(['Priority', 'Importance', 'Urgency']);
+            
+            // Process properties
+            const title = titleProp ? getTextFromProperty(titleProp) : 'Untitled';
+            const status = statusProp ? getTextFromProperty(statusProp) : 'Not Started';
+            const description = descProp ? getTextFromProperty(descProp) : '';
+            const dueDate = dueDateProp ? getTextFromProperty(dueDateProp) : '';
+            const priority = priorityProp ? getTextFromProperty(priorityProp) : '';
             
             // Find any image properties (case-insensitive)
             let images = [];
             Object.entries(properties).forEach(([key, value]) => {
-              if (key.toLowerCase().includes('image') || key.toLowerCase().includes('screenshot') || key.toLowerCase().includes('snapshot')) {
+              if (key.toLowerCase().includes('image') || 
+                  key.toLowerCase().includes('screenshot') || 
+                  key.toLowerCase().includes('snapshot') ||
+                  key.toLowerCase().includes('cover') ||
+                  key.toLowerCase().includes('thumbnail')) {
                 const imageUrls = getTextFromProperty(value);
-                if (imageUrls && typeof imageUrls === 'string') {
+                if (imageUrls && typeof imageUrls === 'string' && imageUrls.trim() !== '') {
                   images.push(imageUrls);
                 } else if (Array.isArray(imageUrls)) {
-                  images = [...images, ...imageUrls];
+                  const validUrls = imageUrls.filter(url => url && typeof url === 'string' && url.trim() !== '');
+                  images = [...images, ...validUrls];
                 }
               }
             });
             
-            return {
+            // Create a flat object of all properties for debugging
+            const allProperties = {};
+            Object.entries(properties).forEach(([key, value]) => {
+              allProperties[key] = getTextFromProperty(value);
+            });
+            
+            // Log the processed item for debugging
+            const processedItem = {
               id: item.id,
-              title: title || 'Untitled',
-              status: status || 'Not Started',
+              title,
+              status,
               description,
               dueDate,
               priority,
               images,
-              properties: Object.entries(properties).reduce((acc, [key, value]) => {
-                acc[key] = getTextFromProperty(value);
-                return acc;
-              }, {})
+              properties: allProperties
             };
+            
+            console.log('Processed item:', processedItem);
+            return processedItem;
           });
           
           setRoadmapItems(processedItems);
