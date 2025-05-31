@@ -118,24 +118,36 @@ async function roadmapHandler(req, res) {
           return '';
         };
         
-        // Helper to get title (common in Notion databases)
+        // Helper to get title from Feature property
         const getTitle = (prop) => {
           if (!prop) return 'Untitled';
           console.log('Getting title from prop:', prop);
           
-          if (prop.title) {
-            const title = prop.title.map(t => t.plain_text).join(' ');
-            console.log('Title from title property:', title);
-            return title;
+          // Check if this is the Feature property
+          if (prop.id === 'title' || prop.type === 'title') {
+            if (prop.title) {
+              const title = prop.title.map(t => t.plain_text).join(' ');
+              console.log('Title from title property:', title);
+              return title;
+            }
           }
           
-          if (prop.rich_text) {
-            const richText = getRichText(prop);
-            console.log('Title from rich text:', richText);
-            return richText;
+          // If we have a Feature property, use that
+          const featureProp = properties.Feature || properties.feature;
+          if (featureProp) {
+            if (featureProp.title) {
+              const title = featureProp.title.map(t => t.plain_text).join(' ');
+              console.log('Title from Feature property:', title);
+              return title;
+            }
+            if (featureProp.rich_text) {
+              const title = getRichText(featureProp);
+              console.log('Title from Feature rich text:', title);
+              return title;
+            }
           }
           
-          // Try to find a title property by name
+          // Fallback to any title or name property
           const titleProp = Object.entries(properties).find(([key, value]) => 
             key.toLowerCase() === 'name' || 
             key.toLowerCase() === 'title' ||
