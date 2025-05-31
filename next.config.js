@@ -2,20 +2,26 @@
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
-  assetPrefix: './', // For static exports
-  // Ensure we're using the correct output mode for Vercel
-  output: 'standalone',
-  // Disable static optimization to ensure we're not exporting static HTML
-  output: 'export',
+  // Only use output: 'export' for static exports (not needed for Vercel)
+  // output: 'export',
   images: {
     unoptimized: true,
   },
-  // Ensure API routes work in production
+  // API routes configuration
   async rewrites() {
+    if (process.env.NODE_ENV === 'production') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: '/api/:path*',
+        },
+      ];
+    }
+    // For development, proxy API requests to localhost
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3000/api'}/:path*`,
+        destination: 'http://localhost:3000/api/:path*',
       },
     ];
   },
