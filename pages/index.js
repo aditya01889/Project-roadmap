@@ -1,6 +1,45 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 
+// Helper function to extract text from Notion property
+const getTextFromProperty = (property) => {
+  if (!property) return '';
+  
+  // Handle different property types
+  if (property.title) {
+    return property.title.map(t => t.plain_text).join(' ');
+  }
+  if (property.rich_text) {
+    return property.rich_text.map(t => t.plain_text).join(' ');
+  }
+  if (property.select) {
+    return property.select.name || '';
+  }
+  if (property.multi_select) {
+    return property.multi_select.map(s => s.name).join(', ');
+  }
+  if (property.date) {
+    return property.date.start || '';
+  }
+  if (property.number !== undefined) {
+    return property.number.toString();
+  }
+  if (property.checkbox !== undefined) {
+    return property.checkbox ? 'Yes' : 'No';
+  }
+  if (property.url) {
+    return property.url;
+  }
+  if (property.email) {
+    return property.email;
+  }
+  if (property.phone_number) {
+    return property.phone_number;
+  }
+  
+  return '';
+};
+
 export default function Home() {
   const [roadmapItems, setRoadmapItems] = useState([]);
   const [loading, setLoading] = useState(true);
